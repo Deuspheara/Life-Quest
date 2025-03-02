@@ -6,6 +6,7 @@ import 'package:life_quest/utils/error_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/quests.dart';
+import 'auth_service.dart';
 
 final questsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async {
   final userId = SupabaseService.client.auth.currentUser?.id;
@@ -22,12 +23,16 @@ final questsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async {
     final List<Map<String, dynamic>> typedData =
     (response as List).map((item) => item as Map<String, dynamic>).toList();
 
+    // Invalidate user profile after fetching quests
+    ref.invalidate(currentUserProfileProvider);
+
     return typedData.map((json) => Quest.fromJson(json)).toList();
   } catch (e) {
     ErrorHandler.logError('Failed to fetch quests', e);
     return [];
   }
 });
+
 
 class QuestService {
   // Fetch quests for current user

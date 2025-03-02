@@ -6,6 +6,7 @@ import 'package:life_quest/services/analytics_service.dart';
 import 'package:life_quest/services/auth_service.dart';
 import 'package:life_quest/views/auth/onboarding_screen.dart';
 import 'package:life_quest/views/settings/gdpr_screen.dart';
+import 'package:life_quest/views/settings/profile_edit_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -36,7 +37,15 @@ class SettingsScreen extends ConsumerWidget {
                     icon: Icons.person_outline,
                     title: 'Profile',
                     onTap: () {
-                      // TODO: Navigate to profile screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProfileEditScreen(),
+                        ),
+                      ).then((_) {
+                        // Refresh user profile data when returning
+                        ref.invalidate(currentUserProfileProvider);
+                      });
                     },
                   ),
                 ],
