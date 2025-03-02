@@ -34,6 +34,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       await _questService.generateQuest(_interestAreas);
       ref.invalidate(questsProvider); // Refresh quests list
+      ref.invalidate(currentUserProfileProvider); // Refresh user profile
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -57,6 +59,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       });
     }
   }
+
 
   @override
   void dispose() {
