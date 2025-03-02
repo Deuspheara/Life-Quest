@@ -9,6 +9,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
+import 'dart:io';
 
 enum AuthState { initial, authenticated, unauthenticated }
 
@@ -227,6 +228,99 @@ class AuthService {
       });
     } catch (e) {
       ErrorHandler.logError('Profile creation failed', e);
+      rethrow;
+    }
+  }
+
+  // Update user profile information
+  Future<void> updateUserProfile({String? displayName}) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('No authenticated user found');
+
+    try {
+      Map<String, dynamic> updates = {
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      
+      if (displayName != null) {
+        updates['display_name'] = displayName;
+      }
+      
+      await SupabaseService.profiles
+        .update(updates)
+        .eq('id', user.id);
+    } catch (e) {
+      ErrorHandler.logError('Profile update failed', e);
+      rethrow;
+    }
+  }
+
+  // Update user avatar with improved organization and cleanup
+ // Update user avatar with improved organization and cleanup
+  Future<void> updateUserAvatar(File imageFile) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('No authenticated user found');
+
+    try {
+      // User-specific avatar folder path
+      final avatarFolderPath = '${user.id}';
+      
+      // Get current user profile to check if they have an existing avatar
+      final userData = await SupabaseService.profiles
+          .select('avatar_url')
+          .eq('id', user.id)
+          .single();
+      
+      final currentAvatarUrl = userData['avatar_url'] as String?;
+      
+      // Delete old avatar if it exists
+      if (currentAvatarUrl != null && currentAvatarUrl.isNotEmpty) {
+        try {
+          // Extract filename from the URL - assumes URL format with filename at the end
+          final oldAvatarPath = currentAvatarUrl.split('/').last;
+          if (oldAvatarPath.isNotEmpty) {
+            await SupabaseService.avatarBucket.remove([
+              '$avatarFolderPath/$oldAvatarPath'
+            ]);
+          }
+        } catch (e) {
+          // Log but continue - failure to delete old avatar shouldn't prevent upload of new one
+          ErrorHandler.logError('Failed to delete old avatar', e);
+        }
+      }
+      
+      // Create a new filename with timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileExtension = 'jpg'; // Assuming we're standardizing on jpg format
+      final fileName = 'avatar_$timestamp.$fileExtension';
+      final fullPath = '$avatarFolderPath/$fileName';
+      
+      // Upload new avatar to the user's folder
+      await SupabaseService.avatarBucket.upload(
+        fullPath,
+        imageFile,
+        fileOptions: const supabase.FileOptions(
+          cacheControl: '3600',
+          upsert: false,
+        ),
+      );
+      
+      // Get the public URL for the uploaded avatar
+      final avatarUrl = await SupabaseService.avatarBucket.createSignedUrl(
+        fullPath,
+        60 * 60 * 24 * 365 * 10, // 10 years expiry
+      );
+      
+      // Update user profile with new avatar URL
+      await SupabaseService.profiles
+        .update({
+          'avatar_url': avatarUrl,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', user.id);
+        
+    } catch (e) {
+      ErrorHandler.logError('Avatar update failed', e);
       rethrow;
     }
   }

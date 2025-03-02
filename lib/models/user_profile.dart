@@ -8,7 +8,7 @@ class UserProfile {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const UserProfile({
+  UserProfile({
     required this.id,
     required this.username,
     required this.displayName,
@@ -19,22 +19,25 @@ class UserProfile {
     required this.updatedAt,
   });
 
-  // Calculate experience needed for next level
-  int get experienceForNextLevel => 100 * level;
+  // Calculate the experience needed for the next level
+  // This is a simple exponential formula, can be adjusted
+  int get experienceForNextLevel => (1000 * (level * 0.5)).toInt();
 
-  // Calculate percentage progress to next level
-  double get levelProgress => experience / experienceForNextLevel;
+  // Progress from 0.0 to 1.0 for current level
+  double get levelProgress {
+    return experience / experienceForNextLevel;
+  }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'],
-      username: json['username'],
-      displayName: json['display_name'],
-      level: json['level'],
-      experience: json['experience'],
+      username: json['username'] ?? '',
+      displayName: json['display_name'] ?? '',
+      level: json['level'] ?? 1,
+      experience: json['experience'] ?? 0,
       avatarUrl: json['avatar_url'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(json['updated_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 

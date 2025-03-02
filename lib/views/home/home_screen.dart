@@ -5,6 +5,7 @@ import 'package:life_quest/constants/app_colors.dart';
 import 'package:life_quest/services/auth_service.dart';
 import 'package:life_quest/views/achievements/achievements_screen.dart';
 import 'package:life_quest/views/quests/quests_screen.dart';
+import 'package:life_quest/views/settings/profile_edit_screen.dart';
 import 'package:life_quest/views/settings/settings_screen.dart';
 import 'package:life_quest/views/widgets/level_progress.dart';
 import 'package:life_quest/views/widgets/quest_card.dart';
@@ -419,34 +420,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         padding: const EdgeInsets.all(12.0),
                         child: Row(
                           children: [
-                            // Profile avatar with improved design
-                            Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white30, width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
+                            // Profile avatar with improved design - Now clickable!
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ProfileEditScreen(),
+                                  ),
+                                ).then((_) {
+                                  // Refresh profile when returning
+                                  ref.invalidate(currentUserProfileProvider);
+                                });
+                              },
+                              child: Stack(
+                                alignment: Alignment.bottomRight,
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white30, width: 2),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 4,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                    child: userProfile.avatarUrl != null
+                                        ? CircleAvatar(
+                                            radius: 30,
+                                            backgroundImage: NetworkImage(userProfile.avatarUrl!),
+                                          )
+                                        : CircleAvatar(
+                                            radius: 30,
+                                            backgroundColor: Colors.white.withOpacity(0.2),
+                                            child: Text(
+                                              userProfile.displayName.isNotEmpty
+                                                  ? userProfile.displayName[0].toUpperCase()
+                                                  : '?',
+                                              style: const TextStyle(
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                  
+                                  // Edit indicator
+                                  Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.9),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit,
+                                      color: Colors.white,
+                                      size: 12,
+                                    ),
                                   ),
                                 ],
                               ),
-                              child: CircleAvatar(
-                                radius: 30,
-                                backgroundColor: Colors.white.withOpacity(0.2),
-                                child: Text(
-                                  userProfile.displayName.isNotEmpty
-                                      ? userProfile.displayName[0].toUpperCase()
-                                      : '?',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
                             ),
+                            
                             const SizedBox(width: 16),
                             // User info with clearer visual hierarchy
                             Expanded(
