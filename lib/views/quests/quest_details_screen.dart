@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_quest/constants/app_colors.dart';
 import 'package:life_quest/services/analytics_service.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/quests.dart';
 import '../../services/quest_services.dart';
 
@@ -21,6 +22,8 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   final QuestService _questService = QuestService();
   bool _isLoading = false;
   late Quest _quest;
+  int? _loadingStepIndex;
+  int? _lastCompletedStepIndex;
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
   Future<void> _completeStep(int stepIndex) async {
     setState(() {
       _isLoading = true;
+      _loadingStepIndex = stepIndex;
     });
 
     try {
@@ -49,6 +53,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
 
       setState(() {
         _quest = updatedQuest;
+        _lastCompletedStepIndex = stepIndex;
       });
 
       // Track step completion in analytics
@@ -58,8 +63,9 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
         'is_quest_completed': _quest.status == QuestStatus.completed,
       });
 
-      // Show completion message if quest is completed
+      // Wait for animation to finish before showing completion dialog
       if (_quest.status == QuestStatus.completed && mounted) {
+        await Future.delayed(const Duration(milliseconds: 600));
         _showCompletionDialog();
       }
     } catch (e) {
@@ -74,6 +80,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
     } finally {
       setState(() {
         _isLoading = false;
+        _loadingStepIndex = null;
       });
     }
   }
@@ -407,8 +414,11 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final isCompleted = _quest.completedSteps.contains(index);
-
-                return Card(
+                final isLoading = _isLoading && _loadingStepIndex == index;
+                final wasJustCompleted = _lastCompletedStepIndex == index;
+                
+                // Create the list item with animation if it was just completed
+                Widget listItem = Card(
                   margin: EdgeInsets.zero,
                   color: isCompleted ? Colors.green.shade50 : null,
                   shape: RoundedRectangleBorder(
@@ -441,7 +451,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
                             : null,
                         color: isCompleted
                             ? AppColors.mediumText
-                            : AppColors.mediumText,
+                            : AppColors.darkText,
                         fontWeight: isCompleted
                             ? FontWeight.normal
                             : FontWeight.bold,
@@ -449,29 +459,57 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
                     ),
                     trailing: _quest.status == QuestStatus.active && !isCompleted
                         ? ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => _completeStep(index),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isCompleted
-                            ? Colors.grey.shade400
-                            : AppColors.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                          : const Text('Complete'),
-                    )
+                            onPressed: _isLoading
+                                ? null
+                                : () => _completeStep(index),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isCompleted
+                                  ? Colors.grey.shade400
+                                  : AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16, 
+                                vertical: 10,
+                              ),
+                              minimumSize: const Size(100, 36),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Complete',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                          )
                         : null,
                   ),
                 );
+                
+                // Add animations for newly completed items
+                if (wasJustCompleted) {
+                  return listItem
+                    .animate()
+                    .fadeIn(duration: 300.ms)
+                    .slideX(
+                      begin: 0.05, 
+                      end: 0, 
+                      curve: Curves.easeOut,
+                      duration: 400.ms,
+                    )
+                    .scale(
+                      begin: const Offset(0.98, 0.98),
+                      end: const Offset(1, 1),
+                      duration: 400.ms,
+                    );
+                }
+                
+                return listItem;
               },
             ),
           ],
