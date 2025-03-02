@@ -11,6 +11,7 @@ import 'package:life_quest/views/auth/profile_creation_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import '../../services/supabase_service.dart';
+import '../home/home_screen.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -85,7 +86,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         // Use OAuth flow on web
         await _authService.signInWithOAuthProvider(supabase.Provider.google);
       }
-
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(),
+          ),
+              (route) => false,
+        );
+      }
+// Auth state listener will handle navigation
+      AnalyticsService.trackEvent('auth_sign_in', properties: {'method': 'google'});
       // Auth state listener will handle navigation
       AnalyticsService.trackEvent('auth_sign_in', properties: {'method': 'google'});
     } catch (e) {
@@ -114,6 +125,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         await _authService.signInWithOAuthProvider(supabase.Provider.apple);
       }
 
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(),
+          ),
+              (route) => false,
+        );
+      }
       // Auth state listener will handle navigation
       AnalyticsService.trackEvent('auth_sign_in', properties: {'method': 'apple'});
     } catch (e) {
