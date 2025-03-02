@@ -441,7 +441,7 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
                             : null,
                         color: isCompleted
                             ? AppColors.mediumText
-                            : AppColors.darkText,
+                            : AppColors.mediumText,
                         fontWeight: isCompleted
                             ? FontWeight.normal
                             : FontWeight.bold,

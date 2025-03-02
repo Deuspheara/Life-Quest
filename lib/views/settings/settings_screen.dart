@@ -13,191 +13,312 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authService = AuthService();
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppStrings.settings),
+        backgroundColor: AppColors.primary,
+        elevation: 0,
       ),
-      body: ListView(
-        children: [
-          // Account section
-          const _SectionHeader(title: 'Account'),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Account section
+              _SettingsCard(
+                icon: Icons.account_circle_outlined,
+                title: 'Account',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.person_outline,
+                    title: 'Profile',
+                    onTap: () {
+                      // TODO: Navigate to profile screen
+                    },
+                  ),
+                ],
+              ),
 
-          ListTile(
-            leading: const Icon(Icons.account_circle_outlined),
-            title: const Text('Profile'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Navigate to profile screen
-            },
-          ),
+              const SizedBox(height: 16),
 
-          const Divider(indent: 16, endIndent: 16),
+              // Preferences section
+              _SettingsCard(
+                icon: Icons.tune,
+                title: 'Preferences',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.notifications_outlined,
+                    title: AppStrings.notifications,
+                    onTap: () {
+                      // TODO: Navigate to notifications settings
+                    },
+                  ),
+                  const Divider(height: 1),
+                  _SettingsTile(
+                    icon: Icons.dark_mode_outlined,
+                    title: 'Theme',
+                    onTap: () {
+                      // TODO: Implement theme selector
+                    },
+                  ),
+                ],
+              ),
 
-          // Preferences section
-          const _SectionHeader(title: 'Preferences'),
+              const SizedBox(height: 16),
 
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text(AppStrings.notifications),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Navigate to notifications settings
-            },
-          ),
+              // Privacy section
+              _SettingsCard(
+                icon: Icons.shield_outlined,
+                title: 'Privacy & Security',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: AppStrings.privacy,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const GdprScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
 
-          const Divider(indent: 16, endIndent: 16),
+              const SizedBox(height: 16),
 
-          ListTile(
-            leading: const Icon(Icons.dark_mode_outlined),
-            title: const Text('Theme'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Implement theme selector
-            },
-          ),
+              // Support section
+              _SettingsCard(
+                icon: Icons.support_outlined,
+                title: 'Support',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.help_outline,
+                    title: AppStrings.help,
+                    onTap: () {
+                      // TODO: Navigate to help center
+                    },
+                  ),
+                  const Divider(height: 1),
+                  _SettingsTile(
+                    icon: Icons.feedback_outlined,
+                    title: 'Send Feedback',
+                    onTap: () {
+                      // TODO: Implement feedback form
+                    },
+                  ),
+                ],
+              ),
 
-          const Divider(indent: 16, endIndent: 16),
+              const SizedBox(height: 16),
 
-          // Privacy section
-          const _SectionHeader(title: 'Privacy & Security'),
+              // About section
+              _SettingsCard(
+                icon: Icons.info_outline,
+                title: 'About',
+                children: [
+                  _SettingsTile(
+                    icon: Icons.info_outline,
+                    title: AppStrings.about,
+                    onTap: () {
+                      // TODO: Navigate to about screen
+                    },
+                  ),
+                ],
+              ),
 
-          ListTile(
-            leading: const Icon(Icons.privacy_tip_outlined),
-            title: const Text(AppStrings.privacy),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const GdprScreen(),
+              const SizedBox(height: 24),
+
+              // Sign out button
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.red.shade100,
                 ),
-              );
-            },
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () async {
+                      try {
+                        await authService.signOut();
+                        // Track sign out event
+                        await AnalyticsService.trackEvent('user_sign_out');
+
+                        if (!context.mounted) return;
+
+                        // Navigate to onboarding screen
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const OnboardingScreen(),
+                          ),
+                              (route) => false,
+                        );
+                      } catch (e) {
+                        // Show error
+                        if (!context.mounted) return;
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to sign out: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.logout,
+                            color: Colors.red.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            AppStrings.signOut,
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // App version
+              Center(
+                child: Text(
+                  'Version 1.0.0',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
 
-          const Divider(indent: 16, endIndent: 16),
+class _SettingsCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
 
-          // Support section
-          const _SectionHeader(title: 'Support'),
+  const _SettingsCard({
+    required this.icon,
+    required this.title,
+    required this.children,
+  });
 
-          ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: const Text(AppStrings.help),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Navigate to help center
-            },
-          ),
-
-          const Divider(indent: 16, endIndent: 16),
-
-          ListTile(
-            leading: const Icon(Icons.feedback_outlined),
-            title: const Text('Send Feedback'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Implement feedback form
-            },
-          ),
-
-          const Divider(indent: 16, endIndent: 16),
-
-          // About section
-          const _SectionHeader(title: 'About'),
-
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text(AppStrings.about),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // TODO: Navigate to about screen
-            },
-          ),
-
-          const Divider(indent: 16, endIndent: 16),
-
-          // Sign out
-          const SizedBox(height: 16),
-
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  await authService.signOut();
-                  // Track sign out event
-                  await AnalyticsService.trackEvent('user_sign_out');
-
-                  if (!context.mounted) return;
-
-                  // Navigate to onboarding screen
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const OnboardingScreen(),
-                    ),
-                        (route) => false,
-                  );
-                } catch (e) {
-                  // Show error
-                  if (!context.mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to sign out: ${e.toString()}'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text(AppStrings.signOut),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade100,
-                foregroundColor: Colors.red.shade700,
-                minimumSize: const Size(double.infinity, 50),
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
             ),
           ),
 
-          const SizedBox(height: 40),
-
-          // App version
-          Center(
-            child: Text(
-              'Version 1.0.0',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 12,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
+          // Card content
+          ...children,
         ],
       ),
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
   final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final Widget? trailing;
 
-  const _SectionHeader({
+  const _SettingsTile({
+    required this.icon,
     required this.title,
+    this.subtitle,
+    required this.onTap,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: AppColors.primary,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 22,
+              color: Colors.grey.shade700,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
+          ],
         ),
       ),
     );
