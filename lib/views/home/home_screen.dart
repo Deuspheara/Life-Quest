@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_quest/constants/app_colors.dart';
+import 'package:life_quest/services/achievement_service.dart';
 import 'package:life_quest/services/auth_service.dart';
+import 'package:life_quest/views/achievements/achievement_details_screen.dart';
 import 'package:life_quest/views/achievements/achievements_screen.dart';
 import 'package:life_quest/views/quests/quests_screen.dart';
 import 'package:life_quest/views/settings/profile_edit_screen.dart';
 import 'package:life_quest/views/settings/settings_screen.dart';
+import 'package:life_quest/views/widgets/achievement_badge.dart';
+import 'package:life_quest/views/widgets/achievement_notification.dart';
 import 'package:life_quest/views/widgets/level_progress.dart';
 import 'package:life_quest/views/widgets/quest_card.dart';
 
@@ -23,8 +27,10 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final QuestService _questService = QuestService();
+  final AchievementService _achievementService = AchievementService();
   List<String> _interestAreas = ['productivity', 'health', 'learning'];
   bool _isGeneratingQuest = false;
+  bool _isCheckingAchievements = false;
   final ScrollController _scrollController = ScrollController();
 
   Future<void> _generateQuest() async {
@@ -61,6 +67,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  Future<void> _checkAchievements() async {
+    setState(() {
+      _isCheckingAchievements = true;
+    });
+
+    try {
+      // Use the more robust force check method
+      final achievements = await _achievementService.forceCheckAchievements();
+      
+      // Refresh the achievements in the UI
+      ref.invalidate(userAchievementsProvider);
+      
+      if (achievements.isNotEmpty) {
+        if (!mounted) return;
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unlocked ${achievements.length} achievement${achievements.length == 1 ? '' : 's'}!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        
+        // Show achievement notification for the first unlocked achievement
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && achievements.isNotEmpty) {
+            AchievementNotification.show(context, achievements.first);
+          }
+        });
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No new achievements to unlock'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error checking achievements: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isCheckingAchievements = false;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Check for new achievements when the home screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAchievements();
+    });
+  }
 
   @override
   void dispose() {
@@ -72,6 +142,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final userProfileAsync = ref.watch(currentUserProfileProvider);
     final questsAsync = ref.watch(questsProvider);
+    final userAchievementsAsync = ref.watch(userAchievementsProvider);
 
     return Scaffold(
       body: Column(
@@ -84,7 +155,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: RefreshIndicator(
               onRefresh: () async {
                 ref.invalidate(questsProvider);
+                ref.invalidate(userAchievementsProvider);
                 await ref.read(questsProvider.future);
+                await ref.read(userAchievementsProvider.future);
               },
               child: CustomScrollView(
                 controller: _scrollController,
@@ -297,20 +370,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
 
-                          // Placeholder for achievements
-                          const Card(
-                            child: SizedBox(
-                              height: 120,
-                              child: Center(
-                                child: Text(
-                                  'Complete quests to earn achievements!',
-                                  style: TextStyle(
-                                    color: AppColors.mediumText,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          // Achievements display
+                          _buildAchievementsSection(userAchievementsAsync),
                         ],
                       ),
                     ),
@@ -320,6 +381,144 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAchievementsSection(
+    AsyncValue<List<dynamic>> userAchievementsAsync,
+  ) {
+    return userAchievementsAsync.when(
+      data: (achievements) {
+        if (achievements.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'No achievements yet',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Complete quests to earn achievements!',
+                    style: TextStyle(
+                      color: AppColors.mediumText,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _isCheckingAchievements ? null : _checkAchievements,
+                    child: _isCheckingAchievements
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Check Achievements'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            // Achievement badges in a horizontal scrollable list
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: achievements.length,
+                itemBuilder: (context, index) {
+                  final achievement = achievements[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12.0),
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AchievementDetailsScreen(
+                            userAchievement: achievement,
+                          ),
+                        ),
+                      ),
+                      child: AchievementBadge(
+                        userAchievement: achievement,
+                        size: 80,
+                        showLabel: true,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Button to check for more achievements
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: TextButton.icon(
+                onPressed: _isCheckingAchievements ? null : _checkAchievements,
+                icon: _isCheckingAchievements
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.refresh),
+                label: const Text('Check for new achievements'),
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Card(
+        child: SizedBox(
+          height: 120,
+          child: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      ),
+      error: (error, stackTrace) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Error loading achievements',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                error.toString(),
+                style: const TextStyle(
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(userAchievementsProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

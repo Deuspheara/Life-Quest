@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
+import 'dart:developer' as developer;
 
 class ErrorHandler {
   static final Logger _logger = Logger(
@@ -20,6 +21,17 @@ class ErrorHandler {
     if (!kDebugMode) {
       // TODO: Implement analytics error reporting
     }
+
+    // Log to console
+    developer.log(
+      '$message: $error',
+      name: 'ErrorHandler',
+      error: error,
+      time: DateTime.now(),
+    );
+    
+    // In the future, this could send errors to a monitoring service
+    // like Sentry, Firebase Crashlytics, etc.
   }
 
   // Log warning message
@@ -30,6 +42,16 @@ class ErrorHandler {
   // Log info message
   static void logInfo(String message) {
     _logger.i(message);
+
+    // Log to console
+    developer.log(
+      message,
+      name: 'AppInfo',
+      time: DateTime.now(),
+    );
+    
+    // In the future, this could send analytics events
+    // to a monitoring service.
   }
 
   // Format user-friendly error message

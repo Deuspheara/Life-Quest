@@ -1,12 +1,33 @@
 import 'dart:developer';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:life_quest/services/achievement_service.dart';
 import 'package:life_quest/services/supabase_service.dart';
 import 'package:life_quest/utils/error_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/quests.dart';
 import 'auth_service.dart';
+
+// Add a provider for completed quests count
+final completedQuestsCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final userId = SupabaseService.client.auth.currentUser?.id;
+  if (userId == null) return 0;
+
+  try {
+    final response = await SupabaseService.quests
+        .select('count')
+        .eq('user_id', userId)
+        .eq('status', QuestStatus.completed.name)
+        .execute();
+
+    final count = response.count;
+    return count ?? 0;
+  } catch (e) {
+    ErrorHandler.logError('Failed to count completed quests', e);
+    return 0;
+  }
+});
 
 final questsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async {
   final userId = SupabaseService.client.auth.currentUser?.id;
@@ -35,6 +56,8 @@ final questsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async {
 
 
 class QuestService {
+  final AchievementService _achievementService = AchievementService();
+  
   // Fetch quests for current user
   Future<List<Quest>> getUserQuests() async {
     final userId = SupabaseService.client.auth.currentUser?.id;
@@ -128,7 +151,6 @@ class QuestService {
   }
 
   // Complete a step in a quest
-// Complete a step in a quest
   Future<void> completeQuestStep(String questId, int stepIndex) async {
     final userId = SupabaseService.client.auth.currentUser?.id;
     if (userId == null) throw Exception('No authenticated user found');
@@ -171,6 +193,9 @@ class QuestService {
 
           // Update user experience points
           await _addExperiencePoints(quest.experiencePoints);
+          
+          // Check for quest-related achievements
+          await _checkQuestAchievements();
         }
       }
     } catch (e) {
@@ -216,11 +241,32 @@ class QuestService {
 
       // If leveled up, check for new achievements
       if (newLevel > currentLevel) {
-        // This would call a method to check for level-based achievements
-        // await _checkLevelAchievements(newLevel);
+        await _achievementService.checkLevelAchievements(newLevel);
       }
     } catch (e) {
       ErrorHandler.logError('Failed to add experience points', e);
+    }
+  }
+  
+  // Check for quest-related achievements
+  Future<void> _checkQuestAchievements() async {
+    try {
+      // Count total completed quests
+      final userId = SupabaseService.client.auth.currentUser?.id;
+      if (userId == null) return;
+      
+      final response = await SupabaseService.quests
+          .select('count')
+          .eq('user_id', userId)
+          .eq('status', QuestStatus.completed.name)
+          .execute();
+          
+      final completedQuestsCount = response.count ?? 0;
+      
+      // Check for quest-based achievements
+      await _achievementService.checkQuestAchievements(completedQuestsCount);
+    } catch (e) {
+      ErrorHandler.logError('Failed to check quest achievements', e);
     }
   }
 }

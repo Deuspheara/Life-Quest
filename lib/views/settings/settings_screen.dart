@@ -2,17 +2,83 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_quest/constants/app_colors.dart';
 import 'package:life_quest/constants/app_strings.dart';
+import 'package:life_quest/services/achievement_service.dart';
 import 'package:life_quest/services/analytics_service.dart';
 import 'package:life_quest/services/auth_service.dart';
 import 'package:life_quest/views/auth/onboarding_screen.dart';
 import 'package:life_quest/views/settings/gdpr_screen.dart';
 import 'package:life_quest/views/settings/profile_edit_screen.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final AchievementService _achievementService = AchievementService();
+  bool _isGeneratingAchievements = false;
+  bool _isDeveloperMode = false; // Track if developer mode is enabled
+
+  void _unlockTestAchievements() async {
+    setState(() {
+      _isGeneratingAchievements = true;
+    });
+
+    try {
+      // Force-check all achievements first
+      final checkedAchievements = await _achievementService.forceCheckAchievements();
+      
+      // Then unlock any remaining test achievements
+      final testAchievements = await _achievementService.unlockTestAchievements();
+      
+      final totalUnlocked = checkedAchievements.length + testAchievements.length;
+      
+      // Refresh all achievements in the UI
+      ref.invalidate(userAchievementsProvider);
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unlocked $totalUnlocked achievement${totalUnlocked == 1 ? '' : 's'}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error unlocking achievements: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isGeneratingAchievements = false;
+      });
+    }
+  }
+  
+  // Toggle developer mode after tapping the version number multiple times
+  int _versionTapCount = 0;
+  void _handleVersionTap() {
+    _versionTapCount++;
+    if (_versionTapCount >= 7) {
+      setState(() {
+        _isDeveloperMode = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Developer mode enabled'),
+          backgroundColor: Colors.purple,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authService = AuthService();
     final theme = Theme.of(context);
 
@@ -208,16 +274,40 @@ class SettingsScreen extends ConsumerWidget {
 
               // App version
               Center(
-                child: Text(
-                  'Version 1.0.0',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
+                child: GestureDetector(
+                  onTap: _handleVersionTap, // Secret developer mode trigger
+                  child: Text(
+                    'Version 1.0.0',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
 
               const SizedBox(height: 16),
+
+              // Developer options - only shown when developer mode is enabled
+              if (_isDeveloperMode)
+                _SettingsCard(
+                  icon: Icons.developer_mode,
+                  title: 'Developer Options',
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.emoji_events,
+                      title: 'Unlock Test Achievements',
+                      subtitle: 'Generate all achievements for testing',
+                      onTap: () { _isGeneratingAchievements
+? null
+: _unlockTestAchievements;
+                          },
+                      trailing: _isGeneratingAchievements
+                          ? const CircularProgressIndicator()
+                          : const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
