@@ -5,6 +5,10 @@ class Achievement {
   final String iconPath;
   final int requiredLevel;
   final bool isSecret;
+  final int points;
+  final String category;
+  final String? badgeColor;
+  final Map<String, dynamic>? criteria;
 
   const Achievement({
     required this.id,
@@ -13,6 +17,10 @@ class Achievement {
     required this.iconPath,
     required this.requiredLevel,
     this.isSecret = false,
+    this.points = 10,
+    this.category = 'quest',
+    this.badgeColor,
+    this.criteria,
   });
 
   factory Achievement.fromJson(Map<String, dynamic> json) {
@@ -23,6 +31,10 @@ class Achievement {
       iconPath: json['icon_path'],
       requiredLevel: json['required_level'],
       isSecret: json['is_secret'] ?? false,
+      points: json['points'] ?? 10,
+      category: json['category'] ?? 'quest',
+      badgeColor: json['badge_color'],
+      criteria: json['criteria'],
     );
   }
 
@@ -34,6 +46,10 @@ class Achievement {
       'icon_path': iconPath,
       'required_level': requiredLevel,
       'is_secret': isSecret,
+      'points': points,
+      'category': category,
+      'badge_color': badgeColor,
+      'criteria': criteria,
     };
   }
 }

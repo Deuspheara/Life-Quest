@@ -1,11 +1,15 @@
 import 'dart:developer';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_quest/services/supabase_service.dart';
 import 'package:life_quest/utils/error_handler.dart';
 import 'package:uuid/uuid.dart';
 
+import '../models/achievement.dart';
 import '../models/quests.dart';
+import 'achievement_service.dart';
+import 'analytics_service.dart';
 import 'auth_service.dart';
 
 final questsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async {
@@ -127,100 +131,142 @@ class QuestService {
     }
   }
 
-  // Complete a step in a quest
-// Complete a step in a quest
-  Future<void> completeQuestStep(String questId, int stepIndex) async {
-    final userId = SupabaseService.client.auth.currentUser?.id;
-    if (userId == null) throw Exception('No authenticated user found');
+  Future<void> completeQuestStep(String questId, int stepIndex, {BuildContext? context}) async {
+  final userId = SupabaseService.client.auth.currentUser?.id;
+  if (userId == null) throw Exception('No authenticated user found');
 
-    try {
-      // Fetch the current quest with explicit single row handling
-      final response = await SupabaseService.quests
-          .select()
+  try {
+    // Fetch the current quest with explicit single row handling
+    final response = await SupabaseService.quests
+        .select()
+        .eq('id', questId)
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+
+    if (response == null) {
+      throw Exception('Quest not found');
+    }
+
+    ErrorHandler.logInfo('Fetched quest: $response');
+
+    final quest = Quest.fromJson(response);
+
+    // Update the completed steps
+    if (!quest.completedSteps.contains(stepIndex)) {
+      final updatedCompletedSteps = [...quest.completedSteps, stepIndex];
+
+      await SupabaseService.quests
+          .update({'completed_steps': updatedCompletedSteps})
           .eq('id', questId)
-          .eq('user_id', userId)
-          .limit(1)
-          .maybeSingle();
+          .eq('user_id', userId);
 
-      if (response == null) {
-        throw Exception('Quest not found');
-      }
-
-      ErrorHandler.logInfo('Fetched quest: $response');
-
-      final quest = Quest.fromJson(response);
-
-      // Update the completed steps
-      if (!quest.completedSteps.contains(stepIndex)) {
-        final updatedCompletedSteps = [...quest.completedSteps, stepIndex];
-
+      // Check if all steps are completed
+      if (updatedCompletedSteps.length == quest.steps.length) {
         await SupabaseService.quests
-            .update({'completed_steps': updatedCompletedSteps})
+            .update({
+          'status': QuestStatus.completed.name,
+          'completed_at': DateTime.now().toIso8601String()
+        })
             .eq('id', questId)
             .eq('user_id', userId);
 
-        // Check if all steps are completed
-        if (updatedCompletedSteps.length == quest.steps.length) {
-          await SupabaseService.quests
-              .update({
-            'status': QuestStatus.completed.name,
-            'completed_at': DateTime.now().toIso8601String()
-          })
-              .eq('id', questId)
-              .eq('user_id', userId);
+        // Update user experience points
+        await _addExperiencePoints(quest.experiencePoints, context: context);
+        
+        // Check for quest-related achievements
+        if (context != null) {
+          final achievementService = AchievementService();
+          final unlockedAchievements = 
+              await achievementService.checkQuestCompletionAchievements();
+          
+          // Show dialog for each unlocked achievement
+          if (unlockedAchievements.isNotEmpty) {
+            for (final achievement in unlockedAchievements) {
+              // Add a short delay between each dialog
+              await Future.delayed(const Duration(milliseconds: 500));
+              if (context.mounted) {
+                AchievementService.showAchievementDialog(context, achievement);
+              }
+            }
+          }
+        }
+        
+        // Track analytics for quest completion
+        AnalyticsService.trackQuestCompleted(
+          quest.id, 
+          quest.title, 
+          quest.experiencePoints
+        );
+      }
+    }
+  } catch (e) {
+    ErrorHandler.logError('Quest step completion failed', e);
+    rethrow;
+  }
+}
 
-          // Update user experience points
-          await _addExperiencePoints(quest.experiencePoints);
+ 
+// Then modify the _addExperiencePoints method in your QuestService class
+// to check for achievements when a user levels up or completes a quest
+
+Future<void> _addExperiencePoints(int points, {BuildContext? context}) async {
+  final userId = SupabaseService.client.auth.currentUser?.id;
+  if (userId == null) return;
+
+  try {
+    // Get current profile
+    final data = await SupabaseService.profiles
+        .select('level, experience')
+        .eq('id', userId)
+        .single();
+
+    int currentLevel = data['level'];
+    int currentExp = data['experience'];
+    int newExp = currentExp + points;
+
+    // Simple leveling formula: level up every 100 * current_level XP
+    int expNeededForNextLevel = 100 * currentLevel;
+    int newLevel = currentLevel;
+
+    while (newExp >= expNeededForNextLevel) {
+      newExp -= expNeededForNextLevel;
+      newLevel++;
+      expNeededForNextLevel = 100 * newLevel;
+    }
+
+    // Update the profile
+    await SupabaseService.profiles
+        .update({
+      'level': newLevel,
+      'experience': newExp,
+      'updated_at': DateTime.now().toIso8601String(),
+    })
+        .eq('id', userId);
+
+    // If leveled up, check for new achievements
+    if (newLevel > currentLevel) {
+      final achievementService = AchievementService();
+      final List<Achievement> unlockedAchievements = 
+          await achievementService.checkLevelAchievements(newLevel);
+      
+      // Show dialog for each unlocked achievement if context is provided
+      if (context != null && unlockedAchievements.isNotEmpty) {
+        for (final achievement in unlockedAchievements) {
+          // Add a short delay between each dialog
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (context.mounted) {
+            AchievementService.showAchievementDialog(context, achievement);
+          }
         }
       }
-    } catch (e) {
-      ErrorHandler.logError('Quest step completion failed', e);
-      rethrow;
+      
+      // Track analytics
+      AnalyticsService.trackLevelUp(newLevel, currentExp + points);
     }
+  } catch (e) {
+    ErrorHandler.logError('Failed to add experience points', e);
   }
+}
 
-  // Add experience points to the user's profile
-  Future<void> _addExperiencePoints(int points) async {
-    final userId = SupabaseService.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    try {
-      // Get current profile
-      final data = await SupabaseService.profiles
-          .select('level, experience')
-          .eq('id', userId)
-          .single();
-
-      int currentLevel = data['level'];
-      int currentExp = data['experience'];
-      int newExp = currentExp + points;
-
-      // Simple leveling formula: level up every 100 * current_level XP
-      int expNeededForNextLevel = 100 * currentLevel;
-      int newLevel = currentLevel;
-
-      while (newExp >= expNeededForNextLevel) {
-        newExp -= expNeededForNextLevel;
-        newLevel++;
-        expNeededForNextLevel = 100 * newLevel;
-      }
-
-      // Update the profile
-      await SupabaseService.profiles
-          .update({
-        'level': newLevel,
-        'experience': newExp,
-        'updated_at': DateTime.now().toIso8601String(),
-      })
-          .eq('id', userId);
-
-      // If leveled up, check for new achievements
-      if (newLevel > currentLevel) {
-        // This would call a method to check for level-based achievements
-        // await _checkLevelAchievements(newLevel);
-      }
-    } catch (e) {
-      ErrorHandler.logError('Failed to add experience points', e);
-    }
-  }
 }
