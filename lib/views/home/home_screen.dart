@@ -13,6 +13,7 @@ import 'package:life_quest/views/widgets/quest_card.dart';
 import '../../models/quests.dart';
 import '../../services/quest_services.dart';
 import '../quests/quest_details_screen.dart';
+import 'widgets/recent_achievement_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -298,19 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const SizedBox(height: 8),
 
                           // Placeholder for achievements
-                          const Card(
-                            child: SizedBox(
-                              height: 120,
-                              child: Center(
-                                child: Text(
-                                  'Complete quests to earn achievements!',
-                                  style: TextStyle(
-                                    color: AppColors.mediumText,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          const RecentAchievementsWidget(),
                         ],
                       ),
                     ),
