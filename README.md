@@ -6,9 +6,9 @@ A Flutter app with Supabase backend that helps users achieve life goals through 
 
 | Authentication | User Profile | Privacy Settings | Quest Details |
 |:--------------:|:------------:|:----------------:|:-------------:|
-| ![Authentication Screen](screenshots/auth.PNG) | ![Profile Screen](screenshots/profile.PNG) | ![Privacy Settings](screenshots/privacy.PNG) | ![Quest Details](screenshots/quest_details.PNG) |
+| <img src="screenshots/auth.PNG" width="200" /> | <img src="screenshots/profile.PNG" width="200" /> | <img src="screenshots/privacy.PNG" width="200" /> | <img src="screenshots/quest_details.PNG" width="200" /> |
 | **Settings** | **Sign In** | **Phone Verification** | **App Icon** |
-| ![Settings Screen](screenshots/settings.PNG) | ![Sign In Screen](screenshots/signin.PNG) | ![Phone Verification](screenshots/phone.PNG) | ![App Icon](screenshots/screenshot_icon.PNG) |
+| <img src="screenshots/settings.PNG" width="200" /> | <img src="screenshots/signin.PNG" width="200" /> | <img src="screenshots/phone.PNG" width="200" /> | <img src="screenshots/screenshot_icon.PNG" width="200" /> |
 
 ## Features
 
