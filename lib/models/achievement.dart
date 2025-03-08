@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-// In lib/models/achievement.dart
 class Achievement {
   final String id;
   final String title;
@@ -8,11 +7,10 @@ class Achievement {
   final String iconPath;
   final int requiredLevel;
   final bool isSecret;
+  // New fields
   final int experienceReward;
   final String category;
-  
-  // Change the type from String to dynamic to handle both formats
-  final dynamic criteria;
+  final String criteria;
   final Color color;
 
   const Achievement({
@@ -38,11 +36,7 @@ class Achievement {
       isSecret: json['is_secret'] ?? false,
       experienceReward: json['experience_reward'] ?? 50,
       category: json['category'] ?? 'general',
-      
-      // Handle criteria field that can be String or Map
       criteria: json['criteria'] ?? '',
-      
-      // Parse color from integer
       color: json['color'] != null ? Color(json['color']) : Colors.amber,
     );
   }
@@ -61,17 +55,8 @@ class Achievement {
       'color': color.value,
     };
   }
-
-  // Helper method to get criteria as a string
-  String getCriteriaAsString() {
-    if (criteria == null) return '';
-    if (criteria is String) return criteria;
-    if (criteria is Map) {
-      return criteria['requirement'] ?? '';
-    }
-    return criteria.toString();
-  }
 }
+
 class UserAchievement {
   final String id;
   final String userId;

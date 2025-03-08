@@ -15,7 +15,7 @@ class ErrorHandler {
 
   // Log error with message and exception
   static void logError(String message, dynamic error) {
-    _logger.e('$message: ${error.toString()}', error, error is Error ? error.stackTrace : null);
+    _logger.e('$message: ${error.toString()}', error: error, stackTrace: error is Error ? error.stackTrace : null);
     // Send to analytics service in production
     if (!kDebugMode) {
       // TODO: Implement analytics error reporting

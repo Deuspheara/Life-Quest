@@ -146,7 +146,7 @@ class AuthService {
       // Sign in with Supabase
       print("Signing in with Supabase using Google tokens");
       await _client.auth.signInWithIdToken(
-        provider: supabase.Provider.google,
+        provider: supabase.OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
@@ -180,7 +180,7 @@ class AuthService {
       }
 
       await _client.auth.signInWithIdToken(
-        provider: supabase.Provider.apple,
+        provider: supabase.OAuthProvider.apple,
         idToken: idToken,
         nonce: rawNonce,
       );
@@ -198,7 +198,7 @@ class AuthService {
   }
 
   // OAuth sign-in for web/Android platforms
-  Future<void> signInWithOAuthProvider(supabase.Provider provider) async {
+  Future<void> signInWithOAuthProvider(supabase.OAuthProvider provider) async {
     try {
       await _client.auth.signInWithOAuth(
         provider,

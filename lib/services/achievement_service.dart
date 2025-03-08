@@ -178,109 +178,100 @@ class AchievementService {
     }
   }
 
-// Add this helper method to the AchievementService class
-String _getCriteriaString(dynamic criteria) {
-  if (criteria == null) return '';
-  if (criteria is String) return criteria;
-  if (criteria is Map && criteria.containsKey('requirement')) {
-    return criteria['requirement'] as String? ?? '';
-  }
-  return '';
-}
-
-// Then update the achievement checking code
-Future<List<Achievement>> checkQuestAchievements(String userId) async {
-  final List<Achievement> newlyUnlocked = [];
-  
-  try {
-    // Get completed quests count
-    final questsResponse = await SupabaseService.quests
-        .select('id, difficulty')
-        .eq('user_id', userId)
-        .eq('status', QuestStatus.completed.name);
+  // Check user's quest-related achievements
+  Future<List<Achievement>> checkQuestAchievements(String userId) async {
+    final List<Achievement> newlyUnlocked = [];
     
-    final List<Map<String, dynamic>> completedQuests =
-        (questsResponse as List).map((item) => item as Map<String, dynamic>).toList();
-    
-    // Count by difficulty
-    final int totalCompleted = completedQuests.length;
-    final int easyCompleted = completedQuests.where((q) => 
-        q['difficulty'] == QuestDifficulty.easy.name).length;
-    final int mediumCompleted = completedQuests.where((q) => 
-        q['difficulty'] == QuestDifficulty.medium.name).length;
-    final int hardCompleted = completedQuests.where((q) => 
-        q['difficulty'] == QuestDifficulty.hard.name).length;
-    final int epicCompleted = completedQuests.where((q) => 
-        q['difficulty'] == QuestDifficulty.epic.name).length;
-    
-    // Get all achievements
-    final achievementsResponse = await SupabaseService.achievements
-        .select()
-        .eq('category', 'quest');
-    
-    final List<Map<String, dynamic>> questAchievements =
-        (achievementsResponse as List).map((item) => item as Map<String, dynamic>).toList();
-    
-    // Check each achievement
-    for (final achievementData in questAchievements) {
-      final achievement = Achievement.fromJson(achievementData);
-      final criteriaString = _getCriteriaString(achievement.criteria);
+    try {
+      // Get completed quests count
+      final questsResponse = await SupabaseService.quests
+          .select('id, difficulty')
+          .eq('user_id', userId)
+          .eq('status', QuestStatus.completed.name);
       
-      // Skip if already awarded
-      final hasAlready = await hasAchievement(userId, achievement.id);
-      if (hasAlready) continue;
+      final List<Map<String, dynamic>> completedQuests =
+          (questsResponse as List).map((item) => item as Map<String, dynamic>).toList();
       
-      bool shouldAward = false;
-      double progress = 0.0;
+      // Count by difficulty
+      final int totalCompleted = completedQuests.length;
+      final int easyCompleted = completedQuests.where((q) => 
+          q['difficulty'] == QuestDifficulty.easy.name).length;
+      final int mediumCompleted = completedQuests.where((q) => 
+          q['difficulty'] == QuestDifficulty.medium.name).length;
+      final int hardCompleted = completedQuests.where((q) => 
+          q['difficulty'] == QuestDifficulty.hard.name).length;
+      final int epicCompleted = completedQuests.where((q) => 
+          q['difficulty'] == QuestDifficulty.epic.name).length;
       
-      // Evaluate criteria using the string
-      if (criteriaString.contains('total_quests:')) {
-        final requiredCount = int.parse(
-            criteriaString.split('total_quests:')[1].trim().split(' ')[0]);
-        progress = totalCompleted / requiredCount;
-        shouldAward = totalCompleted >= requiredCount;
-      } 
-      else if (criteriaString.contains('easy_quests:')) {
-        final requiredCount = int.parse(
-            criteriaString.split('easy_quests:')[1].trim().split(' ')[0]);
-        progress = easyCompleted / requiredCount;
-        shouldAward = easyCompleted >= requiredCount;
-      }
-      else if (criteriaString.contains('medium_quests:')) {
-        final requiredCount = int.parse(
-            criteriaString.split('medium_quests:')[1].trim().split(' ')[0]);
-        progress = mediumCompleted / requiredCount;
-        shouldAward = mediumCompleted >= requiredCount;
-      }
-      else if (criteriaString.contains('hard_quests:')) {
-        final requiredCount = int.parse(
-            criteriaString.split('hard_quests:')[1].trim().split(' ')[0]);
-        progress = hardCompleted / requiredCount;
-        shouldAward = hardCompleted >= requiredCount;
-      }
-      else if (criteriaString.contains('epic_quests:')) {
-        final requiredCount = int.parse(
-            criteriaString.split('epic_quests:')[1].trim().split(' ')[0]);
-        progress = epicCompleted / requiredCount;
-        shouldAward = epicCompleted >= requiredCount;
+      // Get all achievements
+      final achievementsResponse = await SupabaseService.achievements
+          .select()
+          .eq('category', 'quest');
+      
+      final List<Map<String, dynamic>> questAchievements =
+          (achievementsResponse as List).map((item) => item as Map<String, dynamic>).toList();
+      
+      // Check each achievement
+      for (final achievementData in questAchievements) {
+        final achievement = Achievement.fromJson(achievementData);
+        final criteria = achievement.criteria;
+        
+        // Skip if already awarded
+        final hasAlready = await hasAchievement(userId, achievement.id);
+        if (hasAlready) continue;
+        
+        bool shouldAward = false;
+        double progress = 0.0;
+        
+        // Evaluate criteria (simple parsing)
+        if (criteria.contains('total_quests:')) {
+          final requiredCount = int.parse(
+              criteria.split('total_quests:')[1].trim().split(' ')[0]);
+          progress = totalCompleted / requiredCount;
+          shouldAward = totalCompleted >= requiredCount;
+        } 
+        else if (criteria.contains('easy_quests:')) {
+          final requiredCount = int.parse(
+              criteria.split('easy_quests:')[1].trim().split(' ')[0]);
+          progress = easyCompleted / requiredCount;
+          shouldAward = easyCompleted >= requiredCount;
+        }
+        else if (criteria.contains('medium_quests:')) {
+          final requiredCount = int.parse(
+              criteria.split('medium_quests:')[1].trim().split(' ')[0]);
+          progress = mediumCompleted / requiredCount;
+          shouldAward = mediumCompleted >= requiredCount;
+        }
+        else if (criteria.contains('hard_quests:')) {
+          final requiredCount = int.parse(
+              criteria.split('hard_quests:')[1].trim().split(' ')[0]);
+          progress = hardCompleted / requiredCount;
+          shouldAward = hardCompleted >= requiredCount;
+        }
+        else if (criteria.contains('epic_quests:')) {
+          final requiredCount = int.parse(
+              criteria.split('epic_quests:')[1].trim().split(' ')[0]);
+          progress = epicCompleted / requiredCount;
+          shouldAward = epicCompleted >= requiredCount;
+        }
+        
+        // Update progress
+        await updateAchievementProgress(userId, achievement.id, progress);
+        
+        // Award if criteria met
+        if (shouldAward) {
+          await awardAchievement(userId, achievement.id);
+          newlyUnlocked.add(achievement);
+        }
       }
       
-      // Update progress
-      await updateAchievementProgress(userId, achievement.id, progress);
-      
-      // Award if criteria met
-      if (shouldAward) {
-        await awardAchievement(userId, achievement.id);
-        newlyUnlocked.add(achievement);
-      }
+      return newlyUnlocked;
+    } catch (e) {
+      ErrorHandler.logError('Failed to check quest achievements', e);
+      return [];
     }
-    
-    return newlyUnlocked;
-  } catch (e) {
-    ErrorHandler.logError('Failed to check quest achievements', e);
-    return [];
   }
-}
+
   // Check user's level-based achievements
   Future<List<Achievement>> checkLevelAchievements(String userId, int userLevel) async {
     final List<Achievement> newlyUnlocked = [];
@@ -299,12 +290,9 @@ Future<List<Achievement>> checkQuestAchievements(String userId) async {
         final achievement = Achievement.fromJson(achievementData);
         
         // Check if level requirement is met
-      // In checkLevelAchievements method:
         if (userLevel >= achievement.requiredLevel) {
-          ErrorHandler.logInfo('User level $userLevel meets requirement ${achievement.requiredLevel}');
           final awarded = await awardAchievement(userId, achievement.id);
           if (awarded != null) {
-            ErrorHandler.logInfo('Awarded achievement: ${awarded.title}');
             newlyUnlocked.add(awarded);
           }
         }

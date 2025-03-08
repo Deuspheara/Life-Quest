@@ -2,6 +2,14 @@
 
 A Flutter app with Supabase backend that helps users achieve life goals through gamification.
 
+## App Screenshots
+
+| Authentication | User Profile | Privacy Settings | Quest Details |
+|:--------------:|:------------:|:----------------:|:-------------:|
+| ![Authentication Screen](screenshots/auth.PNG) | ![Profile Screen](screenshots/profile.PNG) | ![Privacy Settings](screenshots/privacy.PNG) | ![Quest Details](screenshots/quest_details.PNG) |
+| **Settings** | **Sign In** | **Phone Verification** | **App Icon** |
+| ![Settings Screen](screenshots/settings.PNG) | ![Sign In Screen](screenshots/signin.PNG) | ![Phone Verification](screenshots/phone.PNG) | ![App Icon](screenshots/screenshot_icon.PNG) |
+
 ## Features
 
 ### Authentication and User Management
@@ -116,7 +124,3 @@ lib/
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.

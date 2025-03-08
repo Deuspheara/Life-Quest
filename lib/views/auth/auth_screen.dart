@@ -84,7 +84,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         await _authService.signInWithGoogle();
       } else {
         // Use OAuth flow on web
-        await _authService.signInWithOAuthProvider(supabase.Provider.google);
+        await _authService.signInWithOAuthProvider(supabase.OAuthProvider.google);
       }
       if (mounted) {
         Navigator.pushAndRemoveUntil(
@@ -122,7 +122,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         await _authService.signInWithApple();
       } else {
         // Use OAuth flow on other platforms
-        await _authService.signInWithOAuthProvider(supabase.Provider.apple);
+        await _authService.signInWithOAuthProvider(supabase.OAuthProvider.apple);
       }
 
       if (mounted) {
