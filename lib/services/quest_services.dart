@@ -130,10 +130,12 @@ class QuestService {
       rethrow;
     }
   }
-
-  Future<void> completeQuestStep(String questId, int stepIndex, {BuildContext? context}) async {
+// Modify the completeQuestStep method to check for quest-related achievements
+Future<List<Achievement>> completeQuestStep(String questId, int stepIndex) async {
   final userId = SupabaseService.client.auth.currentUser?.id;
   if (userId == null) throw Exception('No authenticated user found');
+  
+  List<Achievement> unlockedAchievements = [];
 
   try {
     // Fetch the current quest with explicit single row handling
@@ -172,45 +174,22 @@ class QuestService {
             .eq('user_id', userId);
 
         // Update user experience points
-        await _addExperiencePoints(quest.experiencePoints, context: context);
+        await _addExperiencePoints(quest.experiencePoints);
         
         // Check for quest-related achievements
-        if (context != null) {
-          final achievementService = AchievementService();
-          final unlockedAchievements = 
-              await achievementService.checkQuestCompletionAchievements();
-          
-          // Show dialog for each unlocked achievement
-          if (unlockedAchievements.isNotEmpty) {
-            for (final achievement in unlockedAchievements) {
-              // Add a short delay between each dialog
-              await Future.delayed(const Duration(milliseconds: 500));
-              if (context.mounted) {
-                AchievementService.showAchievementDialog(context, achievement);
-              }
-            }
-          }
-        }
-        
-        // Track analytics for quest completion
-        AnalyticsService.trackQuestCompleted(
-          quest.id, 
-          quest.title, 
-          quest.experiencePoints
-        );
+        final achievementService = AchievementService();
+        unlockedAchievements = await achievementService.checkQuestAchievements(userId);
       }
     }
+    
+    return unlockedAchievements;
   } catch (e) {
     ErrorHandler.logError('Quest step completion failed', e);
     rethrow;
   }
 }
-
- 
-// Then modify the _addExperiencePoints method in your QuestService class
-// to check for achievements when a user levels up or completes a quest
-
-Future<void> _addExperiencePoints(int points, {BuildContext? context}) async {
+ // Modify the _addExperiencePoints method to include achievement checking
+Future<void> _addExperiencePoints(int points) async {
   final userId = SupabaseService.client.auth.currentUser?.id;
   if (userId == null) return;
 
@@ -244,29 +223,15 @@ Future<void> _addExperiencePoints(int points, {BuildContext? context}) async {
     })
         .eq('id', userId);
 
-    // If leveled up, check for new achievements
+    // If leveled up, check for level-based achievements
     if (newLevel > currentLevel) {
       final achievementService = AchievementService();
-      final List<Achievement> unlockedAchievements = 
-          await achievementService.checkLevelAchievements(newLevel);
-      
-      // Show dialog for each unlocked achievement if context is provided
-      if (context != null && unlockedAchievements.isNotEmpty) {
-        for (final achievement in unlockedAchievements) {
-          // Add a short delay between each dialog
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (context.mounted) {
-            AchievementService.showAchievementDialog(context, achievement);
-          }
-        }
-      }
-      
-      // Track analytics
-      AnalyticsService.trackLevelUp(newLevel, currentExp + points);
+      await achievementService.checkLevelAchievements(userId, newLevel);
     }
   } catch (e) {
     ErrorHandler.logError('Failed to add experience points', e);
   }
 }
+
 
 }
