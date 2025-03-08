@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_quest/constants/app_colors.dart';
 import 'package:life_quest/services/analytics_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../models/achievement.dart';
 import '../../models/quests.dart';
+import '../../services/achievement_notification_service.dart';
 import '../../services/quest_services.dart';
 
 class QuestDetailsScreen extends ConsumerStatefulWidget {
@@ -37,54 +39,74 @@ class _QuestDetailsScreenState extends ConsumerState<QuestDetailsScreen> {
       'quest_difficulty': _quest.difficulty.name,
     });
   }
+  
+Future<void> _completeStep(int stepIndex) async {
+  setState(() {
+    _isLoading = true;
+    _loadingStepIndex = stepIndex;
+  });
 
-  Future<void> _completeStep(int stepIndex) async {
+  try {
+    // Call quest service to complete the step and check for achievements
+    List<Achievement> newAchievements = await _questService.completeQuestStep(_quest.id, stepIndex);
+
+    // Refresh quest data
+    final updatedQuests = await _questService.getUserQuests();
+    final updatedQuest = updatedQuests.firstWhere((q) => q.id == _quest.id);
+
     setState(() {
-      _isLoading = true;
-      _loadingStepIndex = stepIndex;
+      _quest = updatedQuest;
+      _lastCompletedStepIndex = stepIndex;
     });
 
-    try {
-      await _questService.completeQuestStep(_quest.id, stepIndex);
+    // Track step completion in analytics
+    AnalyticsService.trackEvent('quest_step_completed', properties: {
+      'quest_id': _quest.id,
+      'step_index': stepIndex,
+      'is_quest_completed': _quest.status == QuestStatus.completed,
+    });
 
-      // Refresh quest data
-      final updatedQuests = await _questService.getUserQuests();
-      final updatedQuest = updatedQuests.firstWhere((q) => q.id == _quest.id);
-
-      setState(() {
-        _quest = updatedQuest;
-        _lastCompletedStepIndex = stepIndex;
-      });
-
-      // Track step completion in analytics
-      AnalyticsService.trackEvent('quest_step_completed', properties: {
-        'quest_id': _quest.id,
-        'step_index': stepIndex,
-        'is_quest_completed': _quest.status == QuestStatus.completed,
-      });
-
-      // Wait for animation to finish before showing completion dialog
-      if (_quest.status == QuestStatus.completed && mounted) {
-        await Future.delayed(const Duration(milliseconds: 600));
-        _showCompletionDialog();
+    // Show completion dialog if quest is completed
+    if (_quest.status == QuestStatus.completed && mounted) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      _showCompletionDialog();
+      
+      // Show achievement notifications if any were unlocked
+      if (newAchievements.isNotEmpty) {
+        // Allow time for quest completion dialog to be seen
+        await Future.delayed(const Duration(seconds: 2));
+        
+        if (newAchievements.length == 1) {
+          // Show single achievement notification
+          AchievementNotificationService.showAchievementUnlocked(
+            context, 
+            newAchievements.first,
+          );
+        } else if (newAchievements.length > 1) {
+          // Show multiple achievements notification
+          AchievementNotificationService.showMultipleAchievementsUnlocked(
+            context,
+            newAchievements,
+          );
+        }
       }
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to complete step: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-        _loadingStepIndex = null;
-      });
     }
-  }
+  } catch (e) {
+    if (!mounted) return;
 
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to complete step: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    setState(() {
+      _isLoading = false;
+      _loadingStepIndex = null;
+    });
+  }
+}
   void _showCompletionDialog() {
     showDialog(
       context: context,
